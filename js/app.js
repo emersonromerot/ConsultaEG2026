@@ -12,7 +12,7 @@
  *   local           → local_key (calculado en Python, ver preparar_geometrias.py)
  */
 
-const UMBRAL_ZOOM_LOCAL = 10; // por debajo de este zoom, no se dibujan los ~10,300 locales
+let circLocalAjustada = null; // circunscripción a la que ya se encuadró el mapa en nivel local
 
 const estado = {
   eleccionSlug: null,
@@ -280,15 +280,16 @@ function datosNivelActivo() {
 async function renderMapa() {
   if (capaActual) { map.removeLayer(capaActual); capaActual = null; }
   if (capaLocalActual) { map.removeLayer(capaLocalActual); capaLocalActual = null; }
-  if (estado.nivelActivo !== 'local' && capaFondoLocal) {
-    map.removeLayer(capaFondoLocal); capaFondoLocal = null; fondoLocalClave = null;
+  if (estado.nivelActivo !== 'local') {
+    circLocalAjustada = null;
+    if (capaFondoLocal) { map.removeLayer(capaFondoLocal); capaFondoLocal = null; fondoLocalClave = null; }
   }
   Object.keys(layerPorClave).forEach(k => delete layerPorClave[k]);
 
   if (!estado.pkey) { renderLeyenda(null); return; }
 
   if (estado.nivelActivo === 'local') {
-    renderMapaLocal(); // gated por zoom, se engancha también al evento 'zoomend'
+    renderMapaLocal();
     return;
   }
 
@@ -387,6 +388,17 @@ async function renderFondoLocal() {
   }).addTo(map);
 }
 
+// true si todas las coordenadas del polígono son números finitos — un solo
+// vértice NaN hace que Leaflet aborte la capa completa de la circunscripción.
+function geometriaValida(f) {
+  const g = f && f.geometry;
+  if (!g || !g.coordinates) return false;
+  const anillos = g.type === 'Polygon' ? g.coordinates
+    : g.type === 'MultiPolygon' ? g.coordinates.flat() : null;
+  if (!anillos || !anillos.length) return false;
+  return anillos.every(r => r.every(p => Number.isFinite(p[0]) && Number.isFinite(p[1])));
+}
+
 async function renderMapaLocal() {
   await renderFondoLocal();
   const avisoEl = document.getElementById('aviso-local');
@@ -396,24 +408,11 @@ async function renderMapaLocal() {
     renderLeyenda(null);
     return;
   }
-  if (map.getZoom() < UMBRAL_ZOOM_LOCAL) {
-    avisoEl.style.display = 'block';
-    avisoEl.textContent = `Acércate en el mapa (zoom ≥ ${UMBRAL_ZOOM_LOCAL}) para dibujar los locales — la tabla de la derecha ya muestra el ranking.`;
-    if (capaLocalActual) { map.removeLayer(capaLocalActual); capaLocalActual = null; }
-    renderLeyenda(null);
-    return;
-  }
   avisoEl.style.display = 'none';
 
   const { geojson, nombresPorClave } = await obtenerGeoDecodificada('local');
   const datos = datosNivelActivo(); // ya filtrado por circunscripción de candidato si aplica
-  const bounds = map.getBounds();
-  const featuresVisibles = geojson.features.filter(f => {
-    if (!(f.properties.local_key in datos)) return false;
-    // recorte simple por viewport actual, para no reconstruir miles de
-    // polígonos fuera de vista cada vez que se mueve el mapa
-    return true;
-  });
+  const featuresVisibles = geojson.features.filter(f => f.properties.local_key in datos && geometriaValida(f));
 
   if (capaLocalActual) map.removeLayer(capaLocalActual);
   const color = (estado.agregados.metadata_partidos[estado.pkey] || {}).color || '#4da6ff';
@@ -447,6 +446,12 @@ async function renderMapaLocal() {
       layer.on('click', () => resaltar(layer));
     },
   }).addTo(map);
+  // sin umbral de zoom: al elegir circunscripción se encuadra el mapa en ella (solo la primera vez,
+  // para no perder el zoom del usuario al cambiar de partido/candidato/métrica)
+  if (circLocalAjustada !== estado.circLocal && featuresVisibles.length) {
+    circLocalAjustada = estado.circLocal;
+    map.fitBounds(capaLocalActual.getBounds());
+  }
   renderLeyenda(escala, color, colorOutlier);
 }
 
@@ -1226,7 +1231,7 @@ async function renderMapaComparacion(nodos, partidos) {
   document.getElementById('mapa-comparacion-resumen').innerHTML =
     `<div><span style="color:${colorA}">⬤</span> ${nombreA}: ganó en ${ganaA} ${nombreNivelPlural(nivel)}</div>` +
     `<div><span style="color:${colorB}">⬤</span> ${nombreB}: ganó en ${ganaB} ${nombreNivelPlural(nivel)}</div>` +
-    `<div>empate: ${empate}</div>`;
+    `<div>Empate: ${empate}</div>`;
   renderEscalaComparacion(colorA, colorB, anclas);
 
   setTimeout(() => mapComparacion.invalidateSize(), 60);
@@ -1913,6 +1918,5 @@ function poblarSelectorEleccion() {
 // clave de API de terceros como CARTO). Se ven directamente los polígonos
 // de las circunscripciones/provincias/distritos sobre fondo oscuro.
 map = L.map('map', { zoomControl: true, preferCanvas: true, attributionControl: false }).setView([-9.2, -75.0], 5.2);
-map.on('zoomend moveend', () => { if (estado.nivelActivo === 'local') renderMapaLocal(); });
 
 poblarSelectorEleccion();
