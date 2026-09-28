@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elecciones Generales 2026 — Visualizador</title>
+<link rel="stylesheet" href="lib/leaflet.css">
+<style>
+  :root{
+    --bg:#0f1117; --panel:#1a1d27; --panel-2:#12141d; --border:#2a2d3e;
+    --text:#e2e8f0; --muted:#8892a4; --accent:#4da6ff; --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+  header{padding:10px 16px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:15px;margin:0;font-weight:700;white-space:nowrap;}
+  header h1 span{color:var(--accent);}
+  #sel-eleccion{font-size:14.5px;font-weight:700;padding:9px 14px;min-width:260px;}
+  #tabs{display:flex;gap:6px;margin-left:auto;}
+  .tab-btn{padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);
+    background:var(--panel);color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;}
+  .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  select,button,input[type=text]{padding:6px 9px;border-radius:var(--radius);border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text);font-size:12.5px;}
+  button{cursor:pointer;}
+  main{flex:1;display:flex;min-height:0;}
+  footer{padding:5px 16px;border-top:1px solid var(--border);text-align:center;flex-shrink:0;}
+  #footer-autor{font-size:11.5px;font-weight:700;color:#fff;}
+  #footer-detalle{font-size:10.5px;color:var(--muted);margin-top:1px;}
+  #footer-detalle a{color:var(--muted);}
+  .vista{flex:1;display:none;min-height:0;}
+  .vista.active{display:flex;}
+  #mapa-contenedor{position:relative;flex:1;}
+  #map{position:absolute;inset:0;background:#050912;}
+  #leyenda-mapa{position:absolute;bottom:16px;right:16px;z-index:1000;
+    background:rgba(18,20,29,.92);border:1px solid var(--border);border-radius:var(--radius);
+    padding:8px 10px;max-height:70%;overflow-y:auto;display:none;min-width:150px;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);}
+  .leyenda-header{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+    font-weight:700;margin-bottom:6px;white-space:nowrap;}
+  .leyenda-header button{padding:2px 7px;font-size:10px;border-radius:5px;}
+  .leyenda-fila{display:flex;align-items:center;gap:7px;padding:2px 0;cursor:pointer;user-select:none;}
+  .leyenda-fila input{margin:0;cursor:pointer;}
+  .leyenda-swatch{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.15);flex-shrink:0;}
+  .leyenda-etiqueta{font-size:11px;color:var(--text);white-space:nowrap;}
+  #panel{width:320px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;}
+  .campo{padding:10px 14px;border-bottom:1px solid var(--border);}
+  .campo label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--muted);margin-bottom:5px;font-weight:700;}
+  .campo select,.campo input[type=text]{width:100%;}
+  #modo-tabs{display:flex;gap:6px;}
+  #modo-tabs button{flex:1;background:var(--panel-2);color:var(--muted);border:1px solid var(--border);}
+  #modo-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  #nivel-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+  #nivel-tabs button{flex:1;min-width:70px;background:var(--panel-2);color:var(--muted);
+    border:1px solid var(--border);font-size:11.5px;padding:6px 4px;}
+  #nivel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  #aviso-local{font-size:11.5px;color:#e8b23a;padding:6px 0 0 0;display:none;}
+  #tabla-wrap{flex:1;overflow:auto;padding:6px 14px 14px;}
+  #tabla-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  #tabla-header h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+    font-weight:700;margin:0;}
+  #orden-tabs{display:flex;gap:6px;}
+  #orden-tabs button{flex:1;font-size:11.5px;padding:6px 4px;background:var(--panel-2);color:var(--muted);
+    border:1px solid var(--border);}
+  #orden-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  td{padding:5px 3px;border-bottom:1px solid var(--border);}
+  tr.fila-rank{cursor:pointer;}
+  tr.fila-rank:hover{background:var(--panel-2);}
+  td.rk-num{color:var(--muted);width:16px;text-align:right;font-weight:700;}
+  td.rk-nombre{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  td.rk-valor{text-align:right;font-weight:700;color:var(--accent);white-space:nowrap;}
+  #estado-carga{font-size:11px;color:var(--muted);padding:8px 14px;border-top:1px solid var(--border);}
+  .placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);
+    font-size:13px;text-align:center;padding:40px;}
+  #vista-graficos{flex-direction:column;overflow:auto;}
+  #graficos-panel{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;
+    padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+  #graficos-panel .campo{border:none;padding:0;flex-shrink:0;}
+  #graf-tabs,#graf-nivel-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  #graf-tabs button,#graf-nivel-tabs button{background:var(--panel-2);color:var(--muted);
+    border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;
+    padding:7px 12px;cursor:pointer;}
+  #graf-tabs button.active,#graf-nivel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .graf-comp-fila{display:flex;align-items:center;gap:8px;}
+  .graf-comp-fila select{min-width:170px;}
+  .graf-comp-fila span{color:var(--muted);font-size:12px;}
+  .graf-comp-lado{display:flex;flex-direction:column;gap:4px;}
+  .graf-mapa{flex:1;min-height:360px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);position:relative;overflow:hidden;}
+  .graf-mapa>div[id^="map-"]{position:absolute;inset:0;background:#050912;}
+  .graf-mapa-resumen{position:absolute;top:10px;left:54px;right:10px;z-index:1000;
+    background:rgba(18,20,29,.92);border:1px solid var(--border);border-radius:6px;
+    padding:8px 10px;font-size:12px;color:var(--text);line-height:1.5;}
+  .graf-mapa-escala{position:absolute;bottom:10px;left:10px;right:10px;z-index:1000;
+    background:rgba(18,20,29,.92);border:1px solid var(--border);border-radius:6px;
+    padding:7px 10px;display:flex;align-items:center;justify-content:center;gap:1px;flex-wrap:wrap;}
+  .graf-mapa-escala .chip{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:34px;}
+  .graf-mapa-escala .chip .sw{width:100%;height:14px;border-radius:2px;border:1px solid rgba(255,255,255,.1);}
+  .graf-mapa-escala .chip .et{font-size:9px;color:var(--muted);white-space:nowrap;}
+  .graf-mapa-margen{margin-top:16px;}
+  #graficos-contenido{flex:1;padding:18px 22px;min-height:0;overflow:auto;display:flex;flex-direction:column;}
+  #graf-estado{color:var(--muted);font-size:13px;padding:40px;text-align:center;display:none;}
+  .graf-bloque{display:flex;flex-direction:column;flex:1;min-height:0;}
+  .graf-bloque-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;flex-shrink:0;}
+  .graf-bloque-header h3{font-size:13px;margin:0;font-weight:700;color:var(--text);}
+  .graf-bloque-header h3 span{color:var(--accent);}
+  .graf-texto{font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.5;flex-shrink:0;}
+  .graf-doble{display:flex;gap:16px;flex-wrap:wrap;}
+  .graf-caja{flex:1;min-width:320px;height:340px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:10px;}
+  .graf-caja-grande{flex:1;min-height:320px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:14px;}
+  .leaflet-container{background:#050912;}
+  .info-tooltip{background:var(--panel-2)!important;border:1px solid var(--border)!important;
+    color:var(--text)!important;border-radius:6px!important;font-size:12px!important;padding:7px 9px!important;}
+  .info-tooltip b{color:var(--accent);}
+
+  /* ── Fase 6: pestaña Detalle ──────────────────────────────────── */
+  #detalle-panel{width:320px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;}
+  #detalle-nivel-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+  #detalle-nivel-tabs button{flex:1;min-width:70px;background:var(--panel-2);color:var(--muted);
+    border:1px solid var(--border);font-size:11.5px;padding:6px 4px;}
+  #detalle-nivel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  #detalle-buscar{width:100%;font-family:inherit;}
+  #detalle-lista-wrap{flex:1;overflow:auto;padding:0 14px 14px;min-height:0;}
+  .detalle-fila{padding:7px 8px;border-radius:6px;cursor:pointer;font-size:12.5px;
+    display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+  .detalle-fila:hover{background:var(--panel-2);}
+  .detalle-fila.activa{background:var(--accent);color:#fff;}
+  .detalle-fila .df-nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .detalle-fila .df-sub{color:var(--muted);font-size:10.5px;white-space:nowrap;flex-shrink:0;}
+  .detalle-fila.activa .df-sub{color:rgba(255,255,255,.85);}
+  .detalle-vacio{color:var(--muted);font-size:12px;padding:10px 8px;}
+  #detalle-contenido{flex:1;min-width:0;overflow:auto;padding:22px 26px;}
+  #detalle-ficha-nombre{font-size:19px;margin:0 0 4px;font-weight:700;}
+  #detalle-ficha-cabecera{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin:14px 0 22px;}
+  #detalle-ficha-resumen{display:flex;flex-direction:column;gap:8px;flex:0 0 250px;}
+  .detalle-stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:8px 14px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+  .detalle-stat .ds-valor{font-size:15px;font-weight:700;color:var(--accent);white-space:nowrap;}
+  .detalle-stat .ds-etiqueta{font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);text-align:right;}
+  #detalle-ficha-top5{flex:1 1 380px;min-width:280px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:10px 16px;}
+  #detalle-ficha-top5 h4{margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);font-weight:700;}
+  #detalle-ficha-top5 table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;}
+  .dt5-fila td{padding:7px 4px;border-top:1px solid var(--border);vertical-align:top;}
+  .dt5-fila:first-child td{border-top:none;}
+  .dt5-num{color:var(--muted);width:18px;font-size:11px;}
+  .dt5-swatch{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:7px;flex-shrink:0;
+    margin-top:3px;}
+  .dt5-nombre-fila{display:flex;align-items:flex-start;}
+  .dt5-nombre{white-space:normal;overflow-wrap:break-word;font-weight:600;}
+  .dt5-sub{color:var(--muted);font-size:10.5px;margin-top:2px;margin-left:16px;}
+  .dt5-valor{text-align:right;color:var(--text);white-space:nowrap;font-weight:600;width:64px;}
+  .dt5-pct{display:block;color:var(--muted);font-weight:400;font-size:10.5px;}
+  .dt5-vacio{color:var(--muted);font-size:11.5px;padding:4px;}
+  .detalle-partido{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;
+    overflow:hidden;background:var(--panel);}
+  .detalle-partido-header{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+    user-select:none;}
+  .detalle-partido-header:hover{background:var(--panel-2);}
+  .detalle-partido-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+  .detalle-partido-nombre{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;}
+  .detalle-partido-valor{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;}
+  .detalle-partido-caret{color:var(--muted);font-size:11px;transition:transform .15s;flex-shrink:0;}
+  .detalle-partido.abierto .detalle-partido-caret{transform:rotate(90deg);}
+  .detalle-candidatos{display:none;border-top:1px solid var(--border);}
+  .detalle-partido.abierto .detalle-candidatos{display:block;}
+  .detalle-candidato-fila{display:flex;align-items:center;gap:10px;padding:7px 14px 7px 34px;
+    font-size:12px;border-top:1px solid var(--border);}
+  .detalle-candidato-fila:first-child{border-top:none;}
+  .detalle-candidato-num{color:var(--muted);width:22px;flex-shrink:0;}
+  .detalle-candidato-nombre{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .detalle-candidato-valor{color:var(--text);white-space:nowrap;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Elecciones Generales 2026 <span>· Perú</span></h1>
+    <select id="sel-eleccion"><option value="">Cargando elecciones…</option></select>
+    <div id="tabs">
+      <div class="tab-btn active" data-vista="mapa">Mapa</div>
+      <div class="tab-btn" data-vista="graficos">Gráficos</div>
+      <div class="tab-btn" data-vista="detalle">Detalle</div>
+    </div>
+  </header>
+  <main>
+    <div class="vista active" id="vista-mapa">
+      <div id="panel">
+        <div class="campo">
+          <label>Métrica del mapa y la tabla</label>
+          <div id="orden-tabs">
+            <button data-orden="abs" class="active">Votos absolutos</button>
+            <button data-orden="pct">% de votos válidos</button>
+          </div>
+        </div>
+        <div class="campo">
+          <label>Partido</label>
+          <select id="sel-partido" disabled><option value="">— elige una elección primero —</option></select>
+        </div>
+        <div class="campo">
+          <label>Ver</label>
+          <div id="modo-tabs">
+            <button data-modo="total" class="active">Total del partido</button>
+            <button data-modo="candidato">Candidato específico</button>
+          </div>
+        </div>
+        <div class="campo" id="campo-circ-candidato" style="display:none">
+          <label>Circunscripción (define la lista de candidatos)</label>
+          <select id="sel-circ-candidato"></select>
+        </div>
+        <div class="campo" id="campo-candidato" style="display:none">
+          <label>Candidato</label>
+          <select id="sel-candidato"></select>
+        </div>
+        <div class="campo">
+          <label>Nivel del mapa</label>
+          <div id="nivel-tabs">
+            <button data-nivel="circunscripcion" class="active">Circunscripción</button>
+            <button data-nivel="provincia">Provincia</button>
+            <button data-nivel="distrito">Distrito</button>
+            <button data-nivel="local">Local</button>
+          </div>
+          <div id="aviso-local"></div>
+        </div>
+        <div class="campo" id="campo-circ-local" style="display:none">
+          <label>Circunscripción (necesaria para ver locales de esta elección)</label>
+          <select id="sel-circ-local"></select>
+        </div>
+        <div id="tabla-wrap">
+          <div id="tabla-header">
+            <h3 id="tabla-titulo">Top 10</h3>
+          </div>
+          <table><tbody id="tabla-body"></tbody></table>
+        </div>
+        <div id="estado-carga">Elige una elección para empezar.</div>
+      </div>
+      <div id="mapa-contenedor">
+        <div id="map"></div>
+        <div id="leyenda-mapa"></div>
+      </div>
+    </div>
+    <div class="vista" id="vista-graficos">
+      <div id="graficos-panel">
+        <div class="campo">
+          <label>Gráfico</label>
+          <div id="graf-tabs">
+            <button data-graf="mesas" class="active">Mesas por votos</button>
+            <button data-graf="concentracion">Concentración (Lorenz)</button>
+            <button data-graf="ganador">Ganador por polígono</button>
+            <button data-graf="nulos">Nulos y blancos</button>
+          </div>
+        </div>
+        <div class="campo" id="graf-campo-partido">
+          <label>Partido (independiente del elegido en Mapa)</label>
+          <select id="graf-sel-partido" disabled><option value="">— elige una elección primero —</option></select>
+        </div>
+        <div class="campo" id="graf-campo-nivel" style="display:none">
+          <label>Nivel</label>
+          <div id="graf-nivel-tabs">
+            <button data-nivel="circunscripcion">Circunscripción</button>
+            <button data-nivel="provincia">Provincia</button>
+            <button data-nivel="distrito" class="active">Distrito</button>
+          </div>
+        </div>
+        <div class="campo" id="graf-campo-comparacion" style="display:none">
+          <label>Comparar dos partidos o candidatos en el mapa (opcional)</label>
+          <div id="graf-comp-circ-fila" style="display:none;margin-bottom:8px;">
+            <select id="graf-comp-circ"></select>
+          </div>
+          <div class="graf-comp-fila">
+            <div class="graf-comp-lado">
+              <select id="graf-comp-a"></select>
+              <select id="graf-comp-a-cand"></select>
+            </div>
+            <span>vs.</span>
+            <div class="graf-comp-lado">
+              <select id="graf-comp-b"></select>
+              <select id="graf-comp-b-cand"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="graficos-contenido">
+        <div id="graf-estado">Elige una elección para ver los gráficos.</div>
+        <div class="graf-bloque" id="graf-mesas" style="display:none">
+          <div class="graf-bloque-header">
+            <h3>Distribución de mesas por votos — <span id="graf-mesas-partido"></span></h3>
+            <button id="btn-escala-log-mesas">Escala Y: lineal</button>
+          </div>
+          <div class="graf-caja-grande"><canvas id="canvas-mesas"></canvas></div>
+        </div>
+        <div class="graf-bloque" id="graf-concentracion" style="display:none">
+          <div class="graf-bloque-header">
+            <h3>Curva de concentración (Lorenz) — <span id="graf-conc-partido"></span></h3>
+          </div>
+          <div id="graf-conc-gini" class="graf-texto"></div>
+          <div class="graf-caja-grande"><canvas id="canvas-concentracion"></canvas></div>
+        </div>
+        <div class="graf-bloque" id="graf-ganador" style="display:none">
+          <div id="canvas-ganador-cont" class="graf-caja-grande"><canvas id="canvas-ganador"></canvas></div>
+          <div id="mapa-comparacion-cont" class="graf-mapa" style="display:none">
+            <div id="mapa-comparacion-resumen" class="graf-mapa-resumen"></div>
+            <div id="map-comparacion"></div>
+            <div id="mapa-comparacion-escala" class="graf-mapa-escala"></div>
+          </div>
+        </div>
+        <div class="graf-bloque" id="graf-nulos" style="display:none">
+          <div id="graf-nulos-resumen" class="graf-texto"></div>
+          <div class="graf-caja-grande"><canvas id="canvas-nulos"></canvas></div>
+          <div id="mapa-nulos-cont" class="graf-mapa graf-mapa-margen">
+            <div id="mapa-nulos-resumen" class="graf-mapa-resumen"></div>
+            <div id="map-nulos"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="vista" id="vista-detalle">
+      <div id="detalle-panel">
+        <div class="campo">
+          <label>Nivel (independiente de Mapa y Gráficos)</label>
+          <div id="detalle-nivel-tabs">
+            <button data-nivel="circunscripcion" class="active">Circunscripción</button>
+            <button data-nivel="provincia">Provincia</button>
+            <button data-nivel="distrito">Distrito</button>
+            <button data-nivel="local">Local</button>
+          </div>
+        </div>
+        <div class="campo" id="detalle-campo-circ" style="display:none">
+          <label id="detalle-circ-label">Circunscripción (acota la lista de abajo)</label>
+          <select id="detalle-sel-circ"></select>
+        </div>
+        <div class="campo" id="detalle-campo-provincia" style="display:none">
+          <label id="detalle-provincia-label">Provincia (acota la lista de abajo)</label>
+          <select id="detalle-sel-provincia"></select>
+        </div>
+        <div class="campo" id="detalle-campo-distrito" style="display:none">
+          <label>Distrito (acota la lista de locales)</label>
+          <select id="detalle-sel-distrito"></select>
+        </div>
+        <div class="campo">
+          <label>Buscar por nombre</label>
+          <input type="text" id="detalle-buscar" placeholder="Ej. San Isidro…" autocomplete="off">
+        </div>
+        <div id="detalle-lista-wrap">
+          <div id="detalle-lista"></div>
+        </div>
+        <div id="detalle-estado-carga">Elige una elección para empezar.</div>
+      </div>
+      <div id="detalle-contenido">
+        <div class="placeholder" id="detalle-placeholder">Busca y elige una circunscripción, provincia, distrito o local para ver su detalle completo por partido y candidato.</div>
+        <div id="detalle-ficha" style="display:none">
+          <h2 id="detalle-ficha-nombre"></h2>
+          <div id="detalle-ficha-cabecera">
+            <div id="detalle-ficha-resumen"></div>
+            <div id="detalle-ficha-top5">
+              <h4 id="detalle-top5-titulo">Top 5</h4>
+              <table><tbody id="detalle-top5-body"></tbody></table>
+            </div>
+          </div>
+          <div id="detalle-ficha-partidos"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div id="footer-autor">Emerson Romero T. (2026)</div>
+    <div id="footer-detalle">
+      Elaborado en base a la información reportada por ONPE.
+      Si tiene comentarios o correcciones, puede enviarlos a este correo:
+      <a href="mailto:emersonromerot@gmail.com">emersonromerot@gmail.com</a>
+    </div>
+  </footer>
+</div>
+
+<script src="lib/leaflet.js"></script>
+<script src="lib/topojson-client.min.js"></script>
+<script src="lib/chart.umd.min.js"></script>
+<script src="js/cargador.js"></script>
+<script src="data/manifest.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
