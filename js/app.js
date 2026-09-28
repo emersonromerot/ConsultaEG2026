@@ -673,10 +673,10 @@ function crearChart(idCanvas, config) {
 const OPCIONES_CHART_BASE = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 11 } } } },
+  plugins: { legend: { labels: { color: '#ececec', font: { size: 11 } } } },
   scales: {
-    x: { ticks: { color: '#8892a4', font: { size: 10 } }, grid: { color: '#2a2d3e' } },
-    y: { ticks: { color: '#8892a4', font: { size: 10 } }, grid: { color: '#2a2d3e' } },
+    x: { ticks: { color: '#9a9da5', font: { size: 10 } }, grid: { color: '#2a2c31' } },
+    y: { ticks: { color: '#9a9da5', font: { size: 10 } }, grid: { color: '#2a2c31' } },
   },
 };
 
@@ -827,14 +827,14 @@ function renderGraficoMesas() {
         },
       },
       scales: {
-        x: { ...OPCIONES_CHART_BASE.scales.x, title: { display: true, text: 'Votos por mesa (bins log)', color: '#8892a4', font: { size: 10 } } },
+        x: { ...OPCIONES_CHART_BASE.scales.x, title: { display: true, text: 'Votos por mesa (bins log)', color: '#9a9da5', font: { size: 10 } } },
         y: {
           ...OPCIONES_CHART_BASE.scales.y,
           type: escalaLogActiva ? 'logarithmic' : 'linear',
           position: 'left',
           min: escalaLogActiva ? undefined : 0,
           max: escalaLogActiva ? undefined : maxConteo,
-          title: { display: true, text: 'Total de mesas (n)', color: '#8892a4', font: { size: 10 } },
+          title: { display: true, text: 'Total de mesas (n)', color: '#9a9da5', font: { size: 10 } },
         },
         y1: {
           ...OPCIONES_CHART_BASE.scales.y,
@@ -843,7 +843,7 @@ function renderGraficoMesas() {
           min: escalaLogActiva ? undefined : 0,
           max: escalaLogActiva ? undefined : maxConteo * factorPct,
           grid: { drawOnChartArea: false },
-          title: { display: true, text: '% de las mesas del partido', color: '#8892a4', font: { size: 10 } },
+          title: { display: true, text: '% de las mesas del partido', color: '#9a9da5', font: { size: 10 } },
           ticks: { ...OPCIONES_CHART_BASE.scales.y.ticks, callback: (v) => `${v}%` },
         },
       },
@@ -917,8 +917,8 @@ function renderGraficoConcentracion() {
     options: {
       ...OPCIONES_CHART_BASE,
       scales: {
-        x: { ...OPCIONES_CHART_BASE.scales.x, type: 'linear', min: 0, max: 100, title: { display: true, text: '% acumulado de mesas (de menor a mayor votación)', color: '#8892a4', font: { size: 10 } } },
-        y: { ...OPCIONES_CHART_BASE.scales.y, min: 0, max: 100, title: { display: true, text: '% acumulado de votos', color: '#8892a4', font: { size: 10 } } },
+        x: { ...OPCIONES_CHART_BASE.scales.x, type: 'linear', min: 0, max: 100, title: { display: true, text: '% acumulado de mesas (de menor a mayor votación)', color: '#9a9da5', font: { size: 10 } } },
+        y: { ...OPCIONES_CHART_BASE.scales.y, min: 0, max: 100, title: { display: true, text: '% acumulado de votos', color: '#9a9da5', font: { size: 10 } } },
       },
     },
   });
@@ -995,7 +995,7 @@ function renderGraficoGanador() {
       ...OPCIONES_CHART_BASE,
       indexAxis: 'y',
       plugins: { ...OPCIONES_CHART_BASE.plugins, legend: { display: false },
-        title: { display: true, text: `${nombreNivelPlural(estado.graficoNivel)} ganados por partido`, color: '#e2e8f0', font: { size: 11 } } },
+        title: { display: true, text: `${nombreNivelPlural(estado.graficoNivel)} ganados por partido`, color: '#ececec', font: { size: 11 } } },
     },
   });
 }
@@ -1011,7 +1011,7 @@ function nombreNivelPlural(nivel) {
 // A o de B según la diferencia de puntos porcentuales de voto válido en
 // ese polígono, con más resolución cerca de 0% (donde una elección se
 // decide) que lejos.
-const COLOR_SIN_DATOS_COMPARACION = '#2a2d3e';
+const COLOR_SIN_DATOS_COMPARACION = '#2a2c31';
 const UMBRAL_SIMILITUD_COLOR = 80; // distancia euclidiana en RGB (0-441) por debajo de la cual dos colores se consideran "muy parecidos"
 
 function distanciaColor(hexA, hexB) {
@@ -1267,7 +1267,7 @@ function renderGraficoNulos() {
       ...OPCIONES_CHART_BASE,
       indexAxis: 'y',
       plugins: { ...OPCIONES_CHART_BASE.plugins, legend: { display: false },
-        title: { display: true, text: `Top 15 ${nombreNivelPlural(estado.graficoNivel)} con más nulos+blancos`, color: '#e2e8f0', font: { size: 11 } } },
+        title: { display: true, text: `Top 15 ${nombreNivelPlural(estado.graficoNivel)} con más nulos+blancos`, color: '#ececec', font: { size: 11 } } },
     },
   });
 

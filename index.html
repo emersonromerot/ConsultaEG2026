@@ -5,193 +5,202 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Elecciones Generales 2026 — Visualizador</title>
 <link rel="stylesheet" href="lib/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  /* Paleta neutra: la interfaz va en grises y el color lo ponen los partidos. */
   :root{
-    --bg:#0f1117; --panel:#1a1d27; --panel-2:#12141d; --border:#2a2d3e;
-    --text:#e2e8f0; --muted:#8892a4; --accent:#4da6ff; --radius:8px;
+    --bg:#111214; --panel:#16171a; --panel-2:#1e2024; --border:#2a2c31; --rule:#43464d;
+    --text:#ececec; --muted:#9a9da5; --faint:#6b6e76; --activo:#ececec; --activo-texto:#111214;
+    --aviso:#e0a43a; --radius:3px;
+    --font:'Libre Franklin','Helvetica Neue',Arial,sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
-    font-family:'Segoe UI',system-ui,sans-serif;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);
+    font-size:14px;-webkit-font-smoothing:antialiased;}
   #app{display:flex;flex-direction:column;height:100vh;}
-  header{padding:10px 16px;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
-  header h1{font-size:15px;margin:0;font-weight:700;white-space:nowrap;}
-  header h1 span{color:var(--accent);}
-  #sel-eleccion{font-size:14.5px;font-weight:700;padding:9px 14px;min-width:260px;}
-  #tabs{display:flex;gap:6px;margin-left:auto;}
-  .tab-btn{padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);
-    background:var(--panel);color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;}
-  .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-  select,button,input[type=text]{padding:6px 9px;border-radius:var(--radius);border:1px solid var(--border);
-    background:var(--panel-2);color:var(--text);font-size:12.5px;}
+  button,select,input{font-family:inherit;}
+
+  /* ── Cabecera ── */
+  header{padding:14px 24px 0;border-bottom:1px solid var(--border);
+    display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;}
+  header h1{font-size:20px;margin:0 0 12px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;line-height:1.1;}
+  header h1 span{display:block;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:0;margin-top:3px;}
+  #sel-eleccion{font-size:14px;font-weight:600;padding:8px 12px;min-width:260px;margin-bottom:12px;}
+  #tabs{display:flex;gap:22px;margin-left:auto;align-self:stretch;align-items:flex-end;}
+  .tab-btn{padding:0 0 12px;border-bottom:3px solid transparent;color:var(--muted);
+    font-size:14px;font-weight:600;cursor:pointer;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--text);}
+
+  /* ── Controles ── */
+  select,button,input[type=text]{padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text);font-size:13px;}
+  select:focus,input[type=text]:focus,button:focus-visible{outline:2px solid var(--muted);outline-offset:1px;}
   button{cursor:pointer;}
+  button:hover{border-color:var(--rule);}
+  /* grupos de botones: control segmentado, el activo en claro */
+  #orden-tabs,#modo-tabs,#nivel-tabs,#graf-tabs,#graf-nivel-tabs,#detalle-nivel-tabs{
+    display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--panel-2);padding:2px;}
+  #orden-tabs button,#modo-tabs button,#nivel-tabs button,#graf-tabs button,#graf-nivel-tabs button,#detalle-nivel-tabs button{
+    flex:1;border:none;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;
+    padding:6px 8px;border-radius:2px;white-space:nowrap;}
+  #orden-tabs button:hover,#modo-tabs button:hover,#nivel-tabs button:hover,#graf-tabs button:hover,
+  #graf-nivel-tabs button:hover,#detalle-nivel-tabs button:hover{color:var(--text);}
+  #orden-tabs button.active,#modo-tabs button.active,#nivel-tabs button.active,#graf-tabs button.active,
+  #graf-nivel-tabs button.active,#detalle-nivel-tabs button.active{background:var(--activo);color:var(--activo-texto);}
+
   main{flex:1;display:flex;min-height:0;}
-  footer{padding:5px 16px;border-top:1px solid var(--border);text-align:center;flex-shrink:0;}
-  #footer-autor{font-size:11.5px;font-weight:700;color:#fff;}
-  #footer-detalle{font-size:10.5px;color:var(--muted);margin-top:1px;}
+  footer{padding:8px 24px;border-top:1px solid var(--border);display:flex;gap:16px;align-items:baseline;
+    justify-content:space-between;flex-wrap:wrap;flex-shrink:0;}
+  #footer-autor{font-size:12px;font-weight:700;color:var(--text);}
+  #footer-detalle{font-size:12px;color:var(--faint);}
   #footer-detalle a{color:var(--muted);}
   .vista{flex:1;display:none;min-height:0;}
   .vista.active{display:flex;}
+
+  /* ── Mapa ── */
   #mapa-contenedor{position:relative;flex:1;}
-  #map{position:absolute;inset:0;background:#050912;}
-  #leyenda-mapa{position:absolute;bottom:16px;right:16px;z-index:1000;
-    background:rgba(18,20,29,.92);border:1px solid var(--border);border-radius:var(--radius);
-    padding:8px 10px;max-height:70%;overflow-y:auto;display:none;min-width:150px;
-    box-shadow:0 4px 16px rgba(0,0,0,.4);}
-  .leyenda-header{display:flex;align-items:center;justify-content:space-between;gap:8px;
-    font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
-    font-weight:700;margin-bottom:6px;white-space:nowrap;}
-  .leyenda-header button{padding:2px 7px;font-size:10px;border-radius:5px;}
-  .leyenda-fila{display:flex;align-items:center;gap:7px;padding:2px 0;cursor:pointer;user-select:none;}
-  .leyenda-fila input{margin:0;cursor:pointer;}
-  .leyenda-swatch{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.15);flex-shrink:0;}
-  .leyenda-etiqueta{font-size:11px;color:var(--text);white-space:nowrap;}
+  #map{position:absolute;inset:0;background:#0c0d0f;}
+  #leyenda-mapa{position:absolute;bottom:18px;right:18px;z-index:1000;
+    background:rgba(17,18,20,.94);border:1px solid var(--border);border-radius:var(--radius);
+    padding:10px 12px;max-height:70%;overflow-y:auto;display:none;min-width:160px;}
+  .leyenda-header{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:12px;color:var(--text);font-weight:700;margin-bottom:8px;white-space:nowrap;}
+  .leyenda-header button{padding:2px 8px;font-size:11px;}
+  .leyenda-fila{display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer;user-select:none;}
+  .leyenda-fila input{margin:0;cursor:pointer;accent-color:var(--text);}
+  .leyenda-swatch{width:16px;height:12px;border-radius:1px;flex-shrink:0;}
+  .leyenda-etiqueta{font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+
+  /* ── Panel lateral ── */
   #panel{width:320px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
-    display:flex;flex-direction:column;overflow:hidden;}
-  .campo{padding:10px 14px;border-bottom:1px solid var(--border);}
-  .campo label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
-    color:var(--muted);margin-bottom:5px;font-weight:700;}
+    display:flex;flex-direction:column;overflow:hidden;padding-top:8px;}
+  .campo{padding:10px 20px;}
+  .campo label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;}
   .campo select,.campo input[type=text]{width:100%;}
-  #modo-tabs{display:flex;gap:6px;}
-  #modo-tabs button{flex:1;background:var(--panel-2);color:var(--muted);border:1px solid var(--border);}
-  #modo-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-  #nivel-tabs{display:flex;gap:4px;flex-wrap:wrap;}
-  #nivel-tabs button{flex:1;min-width:70px;background:var(--panel-2);color:var(--muted);
-    border:1px solid var(--border);font-size:11.5px;padding:6px 4px;}
-  #nivel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-  #aviso-local{font-size:11.5px;color:#e8b23a;padding:6px 0 0 0;display:none;}
-  #tabla-wrap{flex:1;overflow:auto;padding:6px 14px 14px;}
-  #tabla-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-  #tabla-header h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-    font-weight:700;margin:0;}
-  #orden-tabs{display:flex;gap:6px;}
-  #orden-tabs button{flex:1;font-size:11.5px;padding:6px 4px;background:var(--panel-2);color:var(--muted);
-    border:1px solid var(--border);}
-  #orden-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  td{padding:5px 3px;border-bottom:1px solid var(--border);}
+  #aviso-local{font-size:12px;color:var(--aviso);padding:8px 0 0;display:none;line-height:1.4;}
+  #tabla-wrap{flex:1;overflow:auto;padding:14px 20px 16px;margin-top:8px;border-top:1px solid var(--border);}
+  #tabla-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  #tabla-header h3{font-size:14px;font-weight:700;margin:0;color:var(--text);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  td{padding:7px 3px;border-bottom:1px solid var(--border);}
   tr.fila-rank{cursor:pointer;}
   tr.fila-rank:hover{background:var(--panel-2);}
-  td.rk-num{color:var(--muted);width:16px;text-align:right;font-weight:700;}
-  td.rk-nombre{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  td.rk-valor{text-align:right;font-weight:700;color:var(--accent);white-space:nowrap;}
-  #estado-carga{font-size:11px;color:var(--muted);padding:8px 14px;border-top:1px solid var(--border);}
+  td.rk-num{color:var(--faint);width:18px;text-align:right;font-variant-numeric:tabular-nums;}
+  td.rk-nombre{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:8px;}
+  td.rk-valor{text-align:right;font-weight:700;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  #estado-carga{font-size:12px;color:var(--faint);padding:10px 20px;border-top:1px solid var(--border);}
   .placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);
-    font-size:13px;text-align:center;padding:40px;}
+    font-size:14px;text-align:center;padding:40px;line-height:1.5;}
+
+  /* ── Gráficos ── */
   #vista-graficos{flex-direction:column;overflow:auto;}
-  #graficos-panel{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;
-    padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
-  #graficos-panel .campo{border:none;padding:0;flex-shrink:0;}
-  #graf-tabs,#graf-nivel-tabs{display:flex;gap:6px;flex-wrap:wrap;}
-  #graf-tabs button,#graf-nivel-tabs button{background:var(--panel-2);color:var(--muted);
-    border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;
-    padding:7px 12px;cursor:pointer;}
-  #graf-tabs button.active,#graf-nivel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-  .graf-comp-fila{display:flex;align-items:center;gap:8px;}
-  .graf-comp-fila select{min-width:170px;}
-  .graf-comp-fila span{color:var(--muted);font-size:12px;}
+  #graficos-panel{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;
+    padding:14px 24px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+  #graficos-panel .campo{padding:0;flex-shrink:0;}
+  .graf-comp-fila{display:flex;align-items:center;gap:10px;}
+  .graf-comp-fila select{min-width:180px;}
+  .graf-comp-fila span{color:var(--faint);font-size:13px;font-weight:600;}
   .graf-comp-lado{display:flex;flex-direction:column;gap:4px;}
-  .graf-mapa{flex:1;min-height:360px;background:var(--panel);border:1px solid var(--border);
-    border-radius:var(--radius);position:relative;overflow:hidden;}
-  .graf-mapa>div[id^="map-"]{position:absolute;inset:0;background:#050912;}
+  .graf-mapa{flex:1;min-height:360px;border:1px solid var(--border);border-radius:var(--radius);
+    position:relative;overflow:hidden;}
+  .graf-mapa>div[id^="map-"]{position:absolute;inset:0;background:#0c0d0f;}
   .graf-mapa-resumen{position:absolute;top:10px;left:54px;right:10px;z-index:1000;
-    background:rgba(18,20,29,.92);border:1px solid var(--border);border-radius:6px;
-    padding:8px 10px;font-size:12px;color:var(--text);line-height:1.5;}
+    background:rgba(17,18,20,.94);border:1px solid var(--border);border-radius:var(--radius);
+    padding:9px 12px;font-size:13px;color:var(--text);line-height:1.5;}
   .graf-mapa-escala{position:absolute;bottom:10px;left:10px;right:10px;z-index:1000;
-    background:rgba(18,20,29,.92);border:1px solid var(--border);border-radius:6px;
-    padding:7px 10px;display:flex;align-items:center;justify-content:center;gap:1px;flex-wrap:wrap;}
-  .graf-mapa-escala .chip{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:34px;}
-  .graf-mapa-escala .chip .sw{width:100%;height:14px;border-radius:2px;border:1px solid rgba(255,255,255,.1);}
-  .graf-mapa-escala .chip .et{font-size:9px;color:var(--muted);white-space:nowrap;}
+    background:rgba(17,18,20,.94);border:1px solid var(--border);border-radius:var(--radius);
+    padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:1px;flex-wrap:wrap;}
+  .graf-mapa-escala .chip{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:34px;}
+  .graf-mapa-escala .chip .sw{width:100%;height:12px;}
+  .graf-mapa-escala .chip .et{font-size:10px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
   .graf-mapa-margen{margin-top:16px;}
-  .graf-nulos-fila{display:flex;gap:16px;flex:1;min-height:560px;}
+  .graf-nulos-fila{display:flex;gap:24px;flex:1;min-height:560px;}
   .graf-nulos-fila .graf-caja-grande{flex:0 0 34%;min-width:300px;}
   .graf-nulos-fila .graf-mapa{flex:1;min-height:0;}
-  #graficos-contenido{flex:1;padding:18px 22px;min-height:0;overflow:auto;display:flex;flex-direction:column;}
-  #graf-estado{color:var(--muted);font-size:13px;padding:40px;text-align:center;display:none;}
+  #graficos-contenido{flex:1;padding:22px 24px;min-height:0;overflow:auto;display:flex;flex-direction:column;}
+  #graf-estado{color:var(--muted);font-size:14px;padding:40px;text-align:center;display:none;}
   .graf-bloque{display:flex;flex-direction:column;flex:1;min-height:0;}
-  .graf-bloque-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;flex-shrink:0;}
-  .graf-bloque-header h3{font-size:13px;margin:0;font-weight:700;color:var(--text);}
-  .graf-bloque-header h3 span{color:var(--accent);}
-  .graf-texto{font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.5;flex-shrink:0;}
-  .graf-doble{display:flex;gap:16px;flex-wrap:wrap;}
-  .graf-caja{flex:1;min-width:320px;height:340px;background:var(--panel);border:1px solid var(--border);
-    border-radius:var(--radius);padding:10px;}
-  .graf-caja-grande{flex:1;min-height:320px;background:var(--panel);border:1px solid var(--border);
-    border-radius:var(--radius);padding:14px;}
-  .leaflet-container{background:#050912;}
-  .info-tooltip{background:var(--panel-2)!important;border:1px solid var(--border)!important;
-    color:var(--text)!important;border-radius:6px!important;font-size:12px!important;padding:7px 9px!important;}
-  .info-tooltip b{color:var(--accent);}
+  .graf-bloque-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;flex-shrink:0;}
+  .graf-bloque-header h3{font-size:19px;margin:0;font-weight:800;color:var(--text);letter-spacing:-.01em;}
+  .graf-bloque-header h3 span{font-weight:500;color:var(--muted);}
+  .graf-bloque-header button{font-size:12px;}
+  .graf-texto{font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.55;flex-shrink:0;max-width:900px;}
+  .graf-doble{display:flex;gap:24px;flex-wrap:wrap;}
+  .graf-caja{flex:1;min-width:320px;height:340px;border-top:1px solid var(--rule);padding:12px 0 0;}
+  /* gráficos sin caja: una línea superior, al estilo editorial */
+  .graf-caja-grande{flex:1;min-height:320px;border-top:1px solid var(--rule);padding:14px 0 0;}
 
-  /* ── Fase 6: pestaña Detalle ──────────────────────────────────── */
+  /* ── Leaflet ── */
+  .leaflet-container{background:#0c0d0f;font-family:var(--font);}
+  .leaflet-bar{border:1px solid var(--border)!important;box-shadow:none!important;border-radius:var(--radius)!important;}
+  .leaflet-bar a{background:var(--panel)!important;color:var(--text)!important;border-bottom-color:var(--border)!important;}
+  .leaflet-bar a:hover{background:var(--panel-2)!important;}
+  .info-tooltip{background:var(--bg)!important;border:1px solid var(--rule)!important;box-shadow:none!important;
+    color:var(--text)!important;border-radius:var(--radius)!important;font-size:12.5px!important;padding:8px 10px!important;
+    font-family:var(--font)!important;line-height:1.45;}
+  .info-tooltip::before{display:none;}
+  .info-tooltip b{color:var(--text);font-weight:700;}
+
+  /* ── Detalle ── */
   #detalle-panel{width:320px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
-    display:flex;flex-direction:column;overflow:hidden;}
-  #detalle-nivel-tabs{display:flex;gap:4px;flex-wrap:wrap;}
-  #detalle-nivel-tabs button{flex:1;min-width:70px;background:var(--panel-2);color:var(--muted);
-    border:1px solid var(--border);font-size:11.5px;padding:6px 4px;}
-  #detalle-nivel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-  #detalle-buscar{width:100%;font-family:inherit;}
-  #detalle-lista-wrap{flex:1;overflow:auto;padding:0 14px 14px;min-height:0;}
-  .detalle-fila{padding:7px 8px;border-radius:6px;cursor:pointer;font-size:12.5px;
+    display:flex;flex-direction:column;overflow:hidden;padding-top:8px;}
+  #detalle-buscar{width:100%;}
+  #detalle-lista-wrap{flex:1;overflow:auto;padding:4px 12px 14px;min-height:0;}
+  #detalle-estado-carga{font-size:12px;color:var(--faint);padding:10px 20px;border-top:1px solid var(--border);}
+  .detalle-fila{padding:8px 8px;border-radius:var(--radius);cursor:pointer;font-size:13px;
     display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
   .detalle-fila:hover{background:var(--panel-2);}
-  .detalle-fila.activa{background:var(--accent);color:#fff;}
+  .detalle-fila.activa{background:var(--activo);color:var(--activo-texto);}
   .detalle-fila .df-nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .detalle-fila .df-sub{color:var(--muted);font-size:10.5px;white-space:nowrap;flex-shrink:0;}
-  .detalle-fila.activa .df-sub{color:rgba(255,255,255,.85);}
-  .detalle-vacio{color:var(--muted);font-size:12px;padding:10px 8px;}
-  #detalle-contenido{flex:1;min-width:0;overflow:auto;padding:22px 26px;}
-  #detalle-ficha-nombre{font-size:19px;margin:0 0 4px;font-weight:700;}
-  #detalle-ficha-cabecera{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin:14px 0 22px;}
-  #detalle-ficha-resumen{display:flex;flex-direction:column;gap:8px;flex:0 0 250px;}
-  .detalle-stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
-    padding:8px 14px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
-  .detalle-stat .ds-valor{font-size:15px;font-weight:700;color:var(--accent);white-space:nowrap;}
-  .detalle-stat .ds-etiqueta{font-size:10px;text-transform:uppercase;letter-spacing:.04em;
-    color:var(--muted);text-align:right;}
-  #detalle-ficha-top5{flex:1 1 380px;min-width:280px;background:var(--panel);border:1px solid var(--border);
-    border-radius:var(--radius);padding:10px 16px;}
-  #detalle-ficha-top5 h4{margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;
-    color:var(--muted);font-weight:700;}
-  #detalle-ficha-top5 table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;}
-  .dt5-fila td{padding:7px 4px;border-top:1px solid var(--border);vertical-align:top;}
+  .detalle-fila .df-sub{color:var(--faint);font-size:11px;white-space:nowrap;flex-shrink:0;}
+  .detalle-fila.activa .df-sub{color:#55575d;}
+  .detalle-vacio{color:var(--muted);font-size:13px;padding:10px 8px;}
+  #detalle-contenido{flex:1;min-width:0;overflow:auto;padding:26px 32px;}
+  #detalle-ficha-nombre{font-size:26px;margin:0 0 4px;font-weight:800;letter-spacing:-.015em;}
+  #detalle-ficha-cabecera{display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 28px;}
+  #detalle-ficha-resumen{display:flex;flex-direction:column;gap:0;flex:0 0 240px;border-top:1px solid var(--rule);}
+  .detalle-stat{padding:10px 0;border-bottom:1px solid var(--border);
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+  .detalle-stat .ds-valor{font-size:18px;font-weight:700;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .detalle-stat .ds-etiqueta{font-size:12px;color:var(--muted);text-align:right;}
+  #detalle-ficha-top5{flex:1 1 380px;min-width:280px;border-top:1px solid var(--rule);padding:10px 0 0;}
+  #detalle-ficha-top5 h4{margin:0 0 6px;font-size:14px;color:var(--text);font-weight:700;}
+  #detalle-ficha-top5 table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;}
+  .dt5-fila td{padding:9px 4px;border-top:1px solid var(--border);vertical-align:top;}
   .dt5-fila:first-child td{border-top:none;}
-  .dt5-num{color:var(--muted);width:18px;font-size:11px;}
-  .dt5-swatch{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:7px;flex-shrink:0;
-    margin-top:3px;}
+  .dt5-num{color:var(--faint);width:20px;font-size:12px;font-variant-numeric:tabular-nums;}
+  .dt5-swatch{width:10px;height:10px;border-radius:1px;display:inline-block;margin-right:8px;flex-shrink:0;margin-top:3px;}
   .dt5-nombre-fila{display:flex;align-items:flex-start;}
   .dt5-nombre{white-space:normal;overflow-wrap:break-word;font-weight:600;}
-  .dt5-sub{color:var(--muted);font-size:10.5px;margin-top:2px;margin-left:16px;}
-  .dt5-valor{text-align:right;color:var(--text);white-space:nowrap;font-weight:600;width:64px;}
-  .dt5-pct{display:block;color:var(--muted);font-weight:400;font-size:10.5px;}
-  .dt5-vacio{color:var(--muted);font-size:11.5px;padding:4px;}
-  .detalle-partido{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;
-    overflow:hidden;background:var(--panel);}
-  .detalle-partido-header{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
-    user-select:none;}
-  .detalle-partido-header:hover{background:var(--panel-2);}
-  .detalle-partido-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
-  .detalle-partido-nombre{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;
-    white-space:nowrap;}
-  .detalle-partido-valor{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;}
-  .detalle-partido-caret{color:var(--muted);font-size:11px;transition:transform .15s;flex-shrink:0;}
+  .dt5-sub{color:var(--muted);font-size:11.5px;margin-top:2px;margin-left:18px;}
+  .dt5-valor{text-align:right;color:var(--text);white-space:nowrap;font-weight:700;width:72px;font-variant-numeric:tabular-nums;}
+  .dt5-pct{display:block;color:var(--muted);font-weight:400;font-size:11.5px;}
+  .dt5-vacio{color:var(--muted);font-size:12.5px;padding:4px;}
+  .detalle-partido{border-top:1px solid var(--border);overflow:hidden;}
+  .detalle-partido:last-child{border-bottom:1px solid var(--border);}
+  .detalle-partido-header{display:flex;align-items:center;gap:12px;padding:12px 6px;cursor:pointer;user-select:none;}
+  .detalle-partido-header:hover{background:var(--panel);}
+  .detalle-partido-swatch{width:4px;height:18px;border-radius:1px;flex-shrink:0;}
+  .detalle-partido-nombre{flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .detalle-partido-valor{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .detalle-partido-caret{color:var(--faint);font-size:11px;transition:transform .15s;flex-shrink:0;}
   .detalle-partido.abierto .detalle-partido-caret{transform:rotate(90deg);}
-  .detalle-candidatos{display:none;border-top:1px solid var(--border);}
+  .detalle-candidatos{display:none;padding-bottom:6px;}
   .detalle-partido.abierto .detalle-candidatos{display:block;}
-  .detalle-candidato-fila{display:flex;align-items:center;gap:10px;padding:7px 14px 7px 34px;
-    font-size:12px;border-top:1px solid var(--border);}
-  .detalle-candidato-fila:first-child{border-top:none;}
-  .detalle-candidato-num{color:var(--muted);width:22px;flex-shrink:0;}
-  .detalle-candidato-nombre{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .detalle-candidato-valor{color:var(--text);white-space:nowrap;}
+  .detalle-candidato-fila{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 22px;font-size:13px;}
+  .detalle-candidato-num{color:var(--faint);width:24px;flex-shrink:0;font-variant-numeric:tabular-nums;}
+  .detalle-candidato-nombre{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
+  .detalle-candidato-valor{color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>Elecciones Generales 2026 <span>· Perú</span></h1>
+    <h1>Elecciones Generales 2026<span>Resultados del Perú por región, distrito y local de votación</span></h1>
     <select id="sel-eleccion"><option value="">Cargando elecciones…</option></select>
     <div id="tabs">
       <div class="tab-btn active" data-vista="mapa">Mapa</div>
@@ -203,25 +212,25 @@
     <div class="vista active" id="vista-mapa">
       <div id="panel">
         <div class="campo">
-          <label>Métrica del mapa y la tabla</label>
+          <label>Mostrar</label>
           <div id="orden-tabs">
-            <button data-orden="abs" class="active">Votos absolutos</button>
+            <button data-orden="abs" class="active">Votos</button>
             <button data-orden="pct">% de votos válidos</button>
           </div>
         </div>
         <div class="campo">
           <label>Partido</label>
-          <select id="sel-partido" disabled><option value="">— elige una elección primero —</option></select>
+          <select id="sel-partido" disabled><option value="">Primero elige una elección</option></select>
         </div>
         <div class="campo">
-          <label>Ver</label>
+          <label>Resultados de</label>
           <div id="modo-tabs">
-            <button data-modo="total" class="active">Total del partido</button>
-            <button data-modo="candidato">Candidato específico</button>
+            <button data-modo="total" class="active">Todo el partido</button>
+            <button data-modo="candidato">Un candidato</button>
           </div>
         </div>
         <div class="campo" id="campo-circ-candidato" style="display:none">
-          <label>Circunscripción (define la lista de candidatos)</label>
+          <label>Circunscripción del candidato</label>
           <select id="sel-circ-candidato"></select>
         </div>
         <div class="campo" id="campo-candidato" style="display:none">
@@ -229,7 +238,7 @@
           <select id="sel-candidato"></select>
         </div>
         <div class="campo">
-          <label>Nivel del mapa</label>
+          <label>Ver el mapa por</label>
           <div id="nivel-tabs">
             <button data-nivel="circunscripcion" class="active">Circunscripción</button>
             <button data-nivel="provincia">Provincia</button>
@@ -239,7 +248,7 @@
           <div id="aviso-local"></div>
         </div>
         <div class="campo" id="campo-circ-local" style="display:none">
-          <label>Circunscripción (necesaria para ver locales de esta elección)</label>
+          <label>¿Qué circunscripción?</label>
           <select id="sel-circ-local"></select>
         </div>
         <div id="tabla-wrap">
@@ -260,18 +269,18 @@
         <div class="campo">
           <label>Gráfico</label>
           <div id="graf-tabs">
-            <button data-graf="mesas" class="active">Mesas por votos</button>
-            <button data-graf="concentracion">Concentración (Lorenz)</button>
-            <button data-graf="ganador">Ganador por polígono</button>
+            <button data-graf="mesas" class="active">Votos por mesa</button>
+            <button data-graf="concentracion">Concentración del voto</button>
+            <button data-graf="ganador">Quién ganó dónde</button>
             <button data-graf="nulos">Nulos y blancos</button>
           </div>
         </div>
         <div class="campo" id="graf-campo-partido">
-          <label>Partido (independiente del elegido en Mapa)</label>
-          <select id="graf-sel-partido" disabled><option value="">— elige una elección primero —</option></select>
+          <label>Partido</label>
+          <select id="graf-sel-partido" disabled><option value="">Primero elige una elección</option></select>
         </div>
         <div class="campo" id="graf-campo-nivel" style="display:none">
-          <label>Nivel</label>
+          <label>Ver por</label>
           <div id="graf-nivel-tabs">
             <button data-nivel="circunscripcion">Circunscripción</button>
             <button data-nivel="provincia">Provincia</button>
@@ -279,7 +288,7 @@
           </div>
         </div>
         <div class="campo" id="graf-campo-comparacion" style="display:none">
-          <label>Comparar dos partidos o candidatos en el mapa (opcional)</label>
+          <label>Comparar en el mapa</label>
           <div id="graf-comp-circ-fila" style="display:none;margin-bottom:8px;">
             <select id="graf-comp-circ"></select>
           </div>
@@ -288,7 +297,7 @@
               <select id="graf-comp-a"></select>
               <select id="graf-comp-a-cand"></select>
             </div>
-            <span>vs.</span>
+            <span>vs</span>
             <div class="graf-comp-lado">
               <select id="graf-comp-b"></select>
               <select id="graf-comp-b-cand"></select>
@@ -300,14 +309,14 @@
         <div id="graf-estado">Elige una elección para ver los gráficos.</div>
         <div class="graf-bloque" id="graf-mesas" style="display:none">
           <div class="graf-bloque-header">
-            <h3>Distribución de mesas por votos — <span id="graf-mesas-partido"></span></h3>
+            <h3>Votos por mesa <span id="graf-mesas-partido"></span></h3>
             <button id="btn-escala-log-mesas">Escala Y: lineal</button>
           </div>
           <div class="graf-caja-grande"><canvas id="canvas-mesas"></canvas></div>
         </div>
         <div class="graf-bloque" id="graf-concentracion" style="display:none">
           <div class="graf-bloque-header">
-            <h3>Curva de concentración (Lorenz) — <span id="graf-conc-partido"></span></h3>
+            <h3>Concentración del voto <span id="graf-conc-partido"></span></h3>
           </div>
           <div id="graf-conc-gini" class="graf-texto"></div>
           <div class="graf-caja-grande"><canvas id="canvas-concentracion"></canvas></div>
@@ -335,7 +344,7 @@
     <div class="vista" id="vista-detalle">
       <div id="detalle-panel">
         <div class="campo">
-          <label>Nivel (independiente de Mapa y Gráficos)</label>
+          <label>Buscar entre</label>
           <div id="detalle-nivel-tabs">
             <button data-nivel="circunscripcion" class="active">Circunscripción</button>
             <button data-nivel="provincia">Provincia</button>
@@ -344,20 +353,20 @@
           </div>
         </div>
         <div class="campo" id="detalle-campo-circ" style="display:none">
-          <label id="detalle-circ-label">Circunscripción (acota la lista de abajo)</label>
+          <label id="detalle-circ-label">Circunscripción</label>
           <select id="detalle-sel-circ"></select>
         </div>
         <div class="campo" id="detalle-campo-provincia" style="display:none">
-          <label id="detalle-provincia-label">Provincia (acota la lista de abajo)</label>
+          <label id="detalle-provincia-label">Provincia</label>
           <select id="detalle-sel-provincia"></select>
         </div>
         <div class="campo" id="detalle-campo-distrito" style="display:none">
-          <label>Distrito (acota la lista de locales)</label>
+          <label>Distrito</label>
           <select id="detalle-sel-distrito"></select>
         </div>
         <div class="campo">
-          <label>Buscar por nombre</label>
-          <input type="text" id="detalle-buscar" placeholder="Ej. San Isidro…" autocomplete="off">
+          <label>Nombre</label>
+          <input type="text" id="detalle-buscar" placeholder="San Isidro, Miraflores…" autocomplete="off">
         </div>
         <div id="detalle-lista-wrap">
           <div id="detalle-lista"></div>
@@ -365,7 +374,7 @@
         <div id="detalle-estado-carga">Elige una elección para empezar.</div>
       </div>
       <div id="detalle-contenido">
-        <div class="placeholder" id="detalle-placeholder">Busca y elige una circunscripción, provincia, distrito o local para ver su detalle completo por partido y candidato.</div>
+        <div class="placeholder" id="detalle-placeholder">Elige un lugar de la lista para ver sus resultados por partido y candidato.</div>
         <div id="detalle-ficha" style="display:none">
           <h2 id="detalle-ficha-nombre"></h2>
           <div id="detalle-ficha-cabecera">
@@ -383,8 +392,7 @@
   <footer>
     <div id="footer-autor">Emerson Romero T. (2026)</div>
     <div id="footer-detalle">
-      Elaborado en base a la información reportada por ONPE.
-      Si tiene comentarios o correcciones, puede enviarlos a este correo:
+      Fuente: ONPE. Comentarios y correcciones:
       <a href="mailto:emersonromerot@gmail.com">emersonromerot@gmail.com</a>
     </div>
   </footer>
@@ -393,6 +401,12 @@
 <script src="lib/leaflet.js"></script>
 <script src="lib/topojson-client.min.js"></script>
 <script src="lib/chart.umd.min.js"></script>
+<script>
+  // Tipografía y tonos de los gráficos acordes con la interfaz
+  Chart.defaults.font.family = "'Libre Franklin','Helvetica Neue',Arial,sans-serif";
+  Chart.defaults.color = '#9a9da5';
+  Chart.defaults.borderColor = '#2a2c31';
+</script>
 <script src="js/cargador.js"></script>
 <script src="data/manifest.js"></script>
 <script src="js/app.js"></script>
