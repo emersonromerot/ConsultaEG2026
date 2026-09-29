@@ -26,7 +26,8 @@ const estado = {
   datosLocalesActuales: null, // dict local_key -> nodo, para el nivel local ya resuelto
   metrica: 'abs',          // 'abs' | 'pct' — comparte mapa y tabla
   decilesSeleccionados: new Set(), // checklist de la leyenda: vacío = mostrar todo; si no, solo esos deciles/outlier
-  graficoActivo: 'mesas',  // 'mesas' | 'concentracion' | 'ganador' | 'nulos'
+  graficoActivo: 'mesas',  // 'mesas' | 'concentracion' | 'ganador' | 'nulos' | 'ausentismo'
+  concExtra: [null, null, null], // hasta 3 partidos más para superponer en la curva de concentración
   graficoNivel: 'distrito', // nivel usado por los gráficos de ganador/nulos
   graficoPkey: null,       // partido elegido en la pestaña Gráficos — independiente del de la pestaña Mapa
   comparacionA: null,      // pkey del partido A en modo comparación (gráfico ganador)
@@ -52,6 +53,8 @@ let map, capaActual, capaLocalActual, tooltip;
 let capaFondoLocal = null, fondoLocalClave = null; // capa de contexto nacional (nivel distrito, opacidad baja), solo en modo local
 let mapComparacion, capaComparacion; // segundo mapa Leaflet, solo para el modo comparación de Gráficos
 let mapNulos, capaNulos; // tercer mapa Leaflet, solo para la coropleta de nulos/blancos
+let mapAus, capaAus;     // cuarto mapa Leaflet, coropleta de ausentismo
+let ausentismoVisitado = false; // la primera vez que se abre Ausentismo se muestra por circunscripción
 const layerPorClave = {}; // clave del nivel activo -> capa Leaflet (para el clic de la tabla)
 
 // ══════════════════════════════════════════════════════════════════
@@ -412,7 +415,13 @@ async function renderMapaLocal() {
 
   const { geojson, nombresPorClave } = await obtenerGeoDecodificada('local');
   const datos = datosNivelActivo(); // ya filtrado por circunscripción de candidato si aplica
-  const featuresVisibles = geojson.features.filter(f => f.properties.local_key in datos && geometriaValida(f));
+  // local_key (nombre||distrito) se repite entre distritos homónimos de otras regiones
+  // (p. ej. SAN JOSE en Puno y en Lambayeque): se exige además la circunscripción del polígono.
+  const circ = estado.circLocal;
+  const featuresVisibles = geojson.features.filter(f =>
+    f.properties.local_key in datos
+    && (!circ || !f.properties.circunscripcion || f.properties.circunscripcion === circ)
+    && geometriaValida(f));
 
   if (capaLocalActual) map.removeLayer(capaLocalActual);
   const color = (estado.agregados.metadata_partidos[estado.pkey] || {}).color || '#4da6ff';
@@ -693,6 +702,12 @@ function poblarPartidosGrafico() {
   sel.innerHTML = '<option value="">— elige un partido —</option>' +
     partidos.map(([pkey, m]) => `<option value="${pkey}">${m.nombre_completo}</option>`).join('');
   sel.disabled = false;
+  estado.concExtra = [null, null, null];
+  [0, 1, 2].forEach(i => {
+    const el = document.getElementById(`graf-conc-extra-${i}`);
+    el.innerHTML = '<option value="">— ninguno —</option>' +
+      partidos.map(([pkey, m]) => `<option value="${pkey}">${m.nombre_completo}</option>`).join('');
+  });
 }
 
 function poblarSelectoresComparacion() {
@@ -770,6 +785,7 @@ function renderGraficos() {
   else if (estado.graficoActivo === 'concentracion') renderGraficoConcentracion();
   else if (estado.graficoActivo === 'ganador') renderGraficoGanador();
   else if (estado.graficoActivo === 'nulos') renderGraficoNulos();
+  else if (estado.graficoActivo === 'ausentismo') renderGraficoAusentismo();
 }
 
 // ── Distribución de mesas por votos (absoluto y relativo) ──────────
@@ -787,9 +803,11 @@ function renderGraficoMesas() {
   }
 
   const color = (estado.agregados.metadata_partidos[pkey] || {}).color || '#4da6ff';
+  // Cada bin cubre los enteros [a, b): se rotula "a" si es un solo valor o
+  // "a–(b-1)" si es un rango (los bordes vienen como enteros desde consolidar_nacional.py).
   const labels = serie.conteo.map((_, i) => {
-    const a = serie.bordes[i], b = serie.bordes[i + 1];
-    return `${Math.round(a)}–${Math.round(b)}`;
+    const a = Math.round(serie.bordes[i]), b = Math.round(serie.bordes[i + 1]) - 1;
+    return b <= a ? `${a}` : `${a}–${b}`;
   });
 
   // Un solo histograma (las barras son el conteo absoluto); el eje derecho
@@ -798,7 +816,12 @@ function renderGraficoMesas() {
   // ambos ejes con ese mismo factor para que las grillas queden alineadas
   // y una sola barra se pueda leer en las dos unidades a la vez.
   const factorPct = serie.n_mesas > 0 ? 100 / serie.n_mesas : 0;
-  const maxConteo = Math.max(...serie.conteo, 1) * 1.08;
+  // máximo "redondo" (1, 2 o 5 × 10^n) para que el tope del eje no sea un número raro
+  const maxConteo = (() => {
+    const m = Math.max(...serie.conteo, 1) * 1.05;
+    const p = Math.pow(10, Math.floor(Math.log10(m)));
+    return [1, 2, 2.5, 5, 10].map(f => f * p).find(v => v >= m);
+  })();
   const escalaLogActiva = chartsActivos['canvas-mesas'] && chartsActivos['canvas-mesas'].options.scales.y.type === 'logarithmic';
 
   crearChart('canvas-mesas', {
@@ -827,7 +850,7 @@ function renderGraficoMesas() {
         },
       },
       scales: {
-        x: { ...OPCIONES_CHART_BASE.scales.x, title: { display: true, text: 'Votos por mesa (bins log)', color: '#9a9da5', font: { size: 10 } } },
+        x: { ...OPCIONES_CHART_BASE.scales.x, title: { display: true, text: 'Votos del partido en la mesa', color: '#9a9da5', font: { size: 10 } } },
         y: {
           ...OPCIONES_CHART_BASE.scales.y,
           type: escalaLogActiva ? 'logarithmic' : 'linear',
@@ -844,7 +867,15 @@ function renderGraficoMesas() {
           max: escalaLogActiva ? undefined : maxConteo * factorPct,
           grid: { drawOnChartArea: false },
           title: { display: true, text: '% de las mesas del partido', color: '#9a9da5', font: { size: 10 } },
-          ticks: { ...OPCIONES_CHART_BASE.scales.y.ticks, callback: (v) => `${v}%` },
+          // en escala lineal, las marcas del eje derecho son las mismas del izquierdo
+          // convertidas a %, así cada línea de la grilla se lee en ambas unidades
+          afterBuildTicks: (eje) => {
+            if (escalaLogActiva) return;
+            const izq = eje.chart.scales.y;
+            if (izq && izq.ticks && izq.ticks.length) eje.ticks = izq.ticks.map(t => ({ value: t.value * factorPct }));
+          },
+          ticks: { ...OPCIONES_CHART_BASE.scales.y.ticks,
+            callback: (v) => `${Number(v).toLocaleString('es-PE', { maximumFractionDigits: 1 })}%` },
         },
       },
     },
@@ -878,44 +909,69 @@ document.getElementById('btn-escala-log-mesas').addEventListener('click', () => 
 
 // ── Curva de concentración (Lorenz) ─────────────────────────────────
 
-function renderGraficoConcentracion() {
-  mostrarBloqueGrafico('graf-concentracion');
-  const pkey = estado.graficoPkey;
-  const nombrePartido = pkey ? (estado.agregados.metadata_partidos[pkey] || {}).nombre_completo : null;
-  document.getElementById('graf-conc-partido').textContent = nombrePartido || '(elige un partido arriba)';
-  const giniEl = document.getElementById('graf-conc-gini');
+// Paleta de respaldo para cuando dos partidos comparados tienen colores casi
+// iguales (varios usan el mismo rojo): el segundo toma el primer color libre.
+const PALETA_COMPARACION_CONC = ['#4da6ff', '#f7c948', '#c084fc', '#51cf66', '#ff8a5c', '#e8e8e8'];
 
-  const serie = pkey && (estado.agregados.series_graficos.concentracion || {})[pkey];
-  if (!serie) {
-    if (chartsActivos['canvas-concentracion']) { chartsActivos['canvas-concentracion'].destroy(); delete chartsActivos['canvas-concentracion']; }
-    giniEl.textContent = '';
-    return;
-  }
-
-  const color = (estado.agregados.metadata_partidos[pkey] || {}).color || '#4da6ff';
-  const puntosLorenz = serie.x_pct_mesas.map((x, i) => ({ x: x * 100, y: serie.y_pct_votos[i] * 100 }));
-
+function giniDeSerie(serie) {
   // Gini aproximado por trapecios sobre la curva de Lorenz ya muestreada
-  // (0 = reparto perfectamente parejo entre mesas, 1 = todo el voto
-  // concentrado en poquísimas mesas).
+  // (0 = voto repartido parejo entre mesas, 1 = concentrado en poquísimas mesas).
   let area = 0;
   for (let i = 1; i < serie.x_pct_mesas.length; i++) {
     const dx = serie.x_pct_mesas[i] - serie.x_pct_mesas[i - 1];
     area += dx * (serie.y_pct_votos[i] + serie.y_pct_votos[i - 1]) / 2;
   }
-  const gini = 1 - 2 * area;
-  giniEl.textContent = `Índice de concentración (Gini aprox.): ${gini.toFixed(3)} — más cerca de 1 = voto más concentrado en pocas mesas; más cerca de 0 = repartido parejo.`;
+  return 1 - 2 * area;
+}
+
+function renderGraficoConcentracion() {
+  mostrarBloqueGrafico('graf-concentracion');
+  const meta = estado.agregados.metadata_partidos;
+  const seriesTodas = estado.agregados.series_graficos.concentracion || {};
+  // partido principal + hasta 3 extra, sin repetir y solo con serie disponible
+  const pkeys = [estado.graficoPkey, ...estado.concExtra]
+    .filter((p, i, arr) => p && arr.indexOf(p) === i && seriesTodas[p]);
+  const giniEl = document.getElementById('graf-conc-gini');
+
+  document.getElementById('graf-conc-partido').textContent = pkeys.length
+    ? pkeys.map(p => (meta[p] || {}).nombre_completo).join(' · ')
+    : '(elige un partido arriba)';
+
+  if (!pkeys.length) {
+    if (chartsActivos['canvas-concentracion']) { chartsActivos['canvas-concentracion'].destroy(); delete chartsActivos['canvas-concentracion']; }
+    giniEl.textContent = '';
+    return;
+  }
+
+  const usados = [];
+  const datasets = pkeys.map(pkey => {
+    let color = (meta[pkey] || {}).color || '#4da6ff';
+    if (usados.some(u => distanciaColor(u, color) < UMBRAL_SIMILITUD_COLOR)) {
+      color = PALETA_COMPARACION_CONC.find(c => usados.every(u => distanciaColor(u, c) >= UMBRAL_SIMILITUD_COLOR)) || color;
+    }
+    usados.push(color);
+    const serie = seriesTodas[pkey];
+    return {
+      label: `${(meta[pkey] || {}).abrev || pkey} (Gini ${giniDeSerie(serie).toFixed(3)})`,
+      data: serie.x_pct_mesas.map((x, i) => ({ x: x * 100, y: serie.y_pct_votos[i] * 100 })),
+      borderColor: color, backgroundColor: color, pointRadius: 0, borderWidth: 2, tension: 0.15,
+    };
+  });
+  datasets.push({ label: 'Reparto perfectamente parejo', data: [{ x: 0, y: 0 }, { x: 100, y: 100 }],
+    borderColor: '#6b6e76', borderDash: [5, 4], pointRadius: 0, borderWidth: 1 });
+
+  giniEl.textContent = pkeys.length === 1
+    ? `Índice de concentración (Gini): ${giniDeSerie(seriesTodas[pkeys[0]]).toFixed(3)}. Cerca de 1, el voto se concentra en pocas mesas; cerca de 0, se reparte parejo.`
+    : 'Cuanto más se aleja una curva de la diagonal, más concentrado está el voto de ese partido en pocas mesas. El Gini de cada uno va en la leyenda.';
 
   crearChart('canvas-concentracion', {
     type: 'line',
-    data: {
-      datasets: [
-        { label: 'Curva de Lorenz', data: puntosLorenz, borderColor: color, backgroundColor: color, pointRadius: 0, borderWidth: 2, tension: 0.15 },
-        { label: 'Igualdad perfecta', data: [{ x: 0, y: 0 }, { x: 100, y: 100 }], borderColor: '#555b6e', borderDash: [5, 4], pointRadius: 0, borderWidth: 1 },
-      ],
-    },
+    data: { datasets },
     options: {
       ...OPCIONES_CHART_BASE,
+      plugins: { ...OPCIONES_CHART_BASE.plugins, tooltip: { callbacks: {
+        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}% de los votos en el ${ctx.parsed.x.toFixed(1)}% de las mesas`,
+      } } },
       scales: {
         x: { ...OPCIONES_CHART_BASE.scales.x, type: 'linear', min: 0, max: 100, title: { display: true, text: '% acumulado de mesas (de menor a mayor votación)', color: '#9a9da5', font: { size: 10 } } },
         y: { ...OPCIONES_CHART_BASE.scales.y, min: 0, max: 100, title: { display: true, text: '% acumulado de votos', color: '#9a9da5', font: { size: 10 } } },
@@ -1325,6 +1381,106 @@ async function renderMapaNulos(nodos) {
   setTimeout(() => mapNulos.invalidateSize(), 60);
 }
 
+// ── Ausentismo ─────────────────────────────────────────────────────
+
+// % de electores hábiles que no votaron: (hábiles − votantes) / hábiles.
+function pctAusentismo(nodo) {
+  const hab = (nodo && nodo.electores_habiles) || 0, vot = (nodo && nodo.total_votantes) || 0;
+  return hab > 0 ? Math.max(0, (hab - vot) / hab * 100) : null;
+}
+
+async function renderGraficoAusentismo() {
+  mostrarBloqueGrafico('graf-ausentismo');
+  const nivel = estado.graficoNivel;
+  const nodos = nodosNivelGrafico();
+  // se espera la geometría para tener los nombres (si no, la primera vez salen las claves)
+  const { nombresPorClave } = await obtenerGeoDecodificada(nivel);
+
+  let sumHab = 0, sumVot = 0;
+  const filas = Object.entries(nodos).map(([clave, nodo]) => {
+    sumHab += nodo.electores_habiles || 0; sumVot += nodo.total_votantes || 0;
+    return { clave, nombre: nombresPorClave[clave] || clave, pct: pctAusentismo(nodo) };
+  }).filter(f => f.pct !== null).sort((a, b) => b.pct - a.pct);
+
+  // por circunscripción se muestran todas (~27); en provincia/distrito, las 15 con más ausentismo
+  const mostradas = nivel === 'circunscripcion' ? filas : filas.slice(0, 15);
+  const pctTotal = sumHab > 0 ? (sumHab - sumVot) / sumHab * 100 : 0;
+  document.getElementById('graf-aus-resumen').textContent =
+    `No votó el ${pctTotal.toFixed(2)}% de los electores hábiles ` +
+    `(${(sumHab - sumVot).toLocaleString('es-PE')} de ${sumHab.toLocaleString('es-PE')}).`;
+
+  const colorBase = '#6fa8d6';
+  crearChart('canvas-ausentismo', {
+    type: 'bar',
+    data: {
+      labels: mostradas.map(f => f.nombre),
+      datasets: [{ label: '% ausentismo', data: mostradas.map(f => f.pct), backgroundColor: colorBase }],
+    },
+    options: {
+      ...OPCIONES_CHART_BASE,
+      indexAxis: 'y',
+      plugins: { ...OPCIONES_CHART_BASE.plugins, legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.x.toFixed(2)}% no votó` } },
+        title: { display: true, color: '#ececec', font: { size: 11 },
+          text: nivel === 'circunscripcion' ? 'Ausentismo por circunscripción'
+            : `Las 15 ${nombreNivelPlural(nivel)} con más ausentismo` } },
+      scales: {
+        x: { ...OPCIONES_CHART_BASE.scales.x, min: 0,
+          ticks: { ...OPCIONES_CHART_BASE.scales.x.ticks, callback: (v) => `${v}%` } },
+        y: { ...OPCIONES_CHART_BASE.scales.y, ticks: { ...OPCIONES_CHART_BASE.scales.y.ticks, autoSkip: false } },
+      },
+    },
+  });
+
+  renderMapaAusentismo(nodos, colorBase);
+}
+
+async function renderMapaAusentismo(nodos, colorBase) {
+  if (!mapAus) {
+    mapAus = L.map('map-ausentismo', { zoomControl: true, preferCanvas: true, attributionControl: false })
+      .setView([-9.2, -75.0], 5.2);
+  }
+  if (capaAus) { mapAus.removeLayer(capaAus); capaAus = null; }
+
+  const nivel = estado.graficoNivel;
+  const { geojson, nombresPorClave } = await obtenerGeoDecodificada(nivel);
+  const cfg = CONFIG_NIVEL[nivel];
+  const colorOutlier = colorAcentoOutlier(colorBase);
+
+  const pctPorClave = {};
+  Object.entries(nodos).forEach(([clave, nodo]) => { pctPorClave[clave] = pctAusentismo(nodo); });
+  const valores = geojson.features.map(f => pctPorClave[f.properties[cfg.propClave]])
+    .filter(v => v !== null && v !== undefined);
+  const escala = calcularEscala(valores);
+
+  capaAus = L.geoJSON(geojson, {
+    style: f => {
+      const valor = pctPorClave[f.properties[cfg.propClave]];
+      if (valor === null || valor === undefined) {
+        return { fillColor: '#2a2c31', fillOpacity: 0.3, color: '#ffffff', weight: 0.4, opacity: 0.2 };
+      }
+      const outlier = esOutlier(valor, escala);
+      return {
+        fillColor: outlier ? colorOutlier : colorDecil(valor, escala, colorBase),
+        fillOpacity: 0.85, color: '#ffffff', weight: outlier ? 1.4 : 0.5, opacity: outlier ? 1 : 0.4,
+      };
+    },
+    onEachFeature: (f, layer) => {
+      const clave = f.properties[cfg.propClave];
+      const valor = pctPorClave[clave];
+      const nodo = nodos[clave] || {};
+      const texto = (valor === null || valor === undefined) ? 'Sin datos'
+        : `${valor.toFixed(2)}% no votó<br>${((nodo.electores_habiles || 0) - (nodo.total_votantes || 0)).toLocaleString('es-PE')} de ${(nodo.electores_habiles || 0).toLocaleString('es-PE')} electores`;
+      layer.bindTooltip(`<b>${nombresPorClave[clave] || clave}</b><br>${texto}`, { sticky: true, className: 'info-tooltip' });
+    },
+  }).addTo(mapAus);
+
+  if (geojson.features.length) mapAus.fitBounds(capaAus.getBounds());
+  document.getElementById('mapa-aus-resumen').textContent =
+    `Ausentismo por ${nombreNivelPlural(nivel)}. Más intenso = más electores que no votaron; con borde blanco, el 1% más alto.`;
+  setTimeout(() => mapAus.invalidateSize(), 60);
+}
+
 // ── Eventos propios de la pestaña de gráficos ───────────────────────
 
 document.querySelectorAll('#graf-tabs button').forEach(btn => {
@@ -1332,12 +1488,19 @@ document.querySelectorAll('#graf-tabs button').forEach(btn => {
     document.querySelectorAll('#graf-tabs button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     estado.graficoActivo = btn.dataset.graf;
-    const necesitaNivel = estado.graficoActivo === 'ganador' || estado.graficoActivo === 'nulos';
+    if (estado.graficoActivo === 'ausentismo' && !ausentismoVisitado) {
+      ausentismoVisitado = true;
+      estado.graficoNivel = 'circunscripcion';
+      document.querySelectorAll('#graf-nivel-tabs button').forEach(b => b.classList.toggle('active', b.dataset.nivel === 'circunscripcion'));
+    }
+    const necesitaNivel = ['ganador', 'nulos', 'ausentismo'].includes(estado.graficoActivo);
     const necesitaPartido = estado.graficoActivo === 'mesas' || estado.graficoActivo === 'concentracion';
     document.getElementById('graf-campo-nivel').style.display = necesitaNivel ? 'block' : 'none';
     document.getElementById('graf-campo-partido').style.display = necesitaPartido ? 'block' : 'none';
     document.getElementById('graf-campo-comparacion').style.display =
       estado.graficoActivo === 'ganador' ? 'block' : 'none';
+    document.getElementById('graf-campo-conc-extra').style.display =
+      estado.graficoActivo === 'concentracion' ? 'block' : 'none';
     renderGraficos();
   });
 });
@@ -1354,6 +1517,12 @@ document.querySelectorAll('#graf-nivel-tabs button').forEach(btn => {
 document.getElementById('graf-sel-partido').addEventListener('change', (e) => {
   estado.graficoPkey = e.target.value || null;
   renderGraficos();
+});
+[0, 1, 2].forEach(i => {
+  document.getElementById(`graf-conc-extra-${i}`).addEventListener('change', (e) => {
+    estado.concExtra[i] = e.target.value || null;
+    renderGraficos();
+  });
 });
 
 document.getElementById('graf-comp-a').addEventListener('change', (e) => {

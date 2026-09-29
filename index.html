@@ -121,6 +121,8 @@
   .graf-nulos-fila{display:flex;gap:24px;flex:1;min-height:560px;}
   .graf-nulos-fila .graf-caja-grande{flex:0 0 34%;min-width:300px;}
   .graf-nulos-fila .graf-mapa{flex:1;min-height:0;}
+  .graf-conc-extra-fila{display:flex;gap:8px;flex-wrap:wrap;}
+  .graf-conc-extra-fila select{min-width:180px;max-width:240px;}
   #graficos-contenido{flex:1;padding:22px 24px;min-height:0;overflow:auto;display:flex;flex-direction:column;}
   #graf-estado{color:var(--muted);font-size:14px;padding:40px;text-align:center;display:none;}
   .graf-bloque{display:flex;flex-direction:column;flex:1;min-height:0;}
@@ -273,11 +275,20 @@
             <button data-graf="concentracion">Concentración del voto</button>
             <button data-graf="ganador">Quién ganó dónde</button>
             <button data-graf="nulos">Nulos y blancos</button>
+            <button data-graf="ausentismo">Ausentismo</button>
           </div>
         </div>
         <div class="campo" id="graf-campo-partido">
           <label>Partido</label>
           <select id="graf-sel-partido" disabled><option value="">Primero elige una elección</option></select>
+        </div>
+        <div class="campo" id="graf-campo-conc-extra" style="display:none">
+          <label>Comparar con (hasta 3 más)</label>
+          <div class="graf-conc-extra-fila">
+            <select id="graf-conc-extra-0"></select>
+            <select id="graf-conc-extra-1"></select>
+            <select id="graf-conc-extra-2"></select>
+          </div>
         </div>
         <div class="campo" id="graf-campo-nivel" style="display:none">
           <label>Ver por</label>
@@ -336,6 +347,16 @@
             <div id="mapa-nulos-cont" class="graf-mapa">
               <div id="mapa-nulos-resumen" class="graf-mapa-resumen"></div>
               <div id="map-nulos"></div>
+            </div>
+          </div>
+        </div>
+        <div class="graf-bloque" id="graf-ausentismo" style="display:none">
+          <div id="graf-aus-resumen" class="graf-texto"></div>
+          <div class="graf-nulos-fila">
+            <div class="graf-caja-grande"><canvas id="canvas-ausentismo"></canvas></div>
+            <div id="mapa-aus-cont" class="graf-mapa">
+              <div id="mapa-aus-resumen" class="graf-mapa-resumen"></div>
+              <div id="map-ausentismo"></div>
             </div>
           </div>
         </div>
