@@ -197,6 +197,24 @@
   .detalle-candidato-num{color:var(--faint);width:24px;flex-shrink:0;font-variant-numeric:tabular-nums;}
   .detalle-candidato-nombre{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
   .detalle-candidato-valor{color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}
+
+  /* ── Acerca de ── */
+  #vista-acerca{overflow:auto;justify-content:center;}
+  #acerca-contenido{max-width:760px;width:100%;padding:32px 24px 56px;line-height:1.6;}
+  #acerca-contenido h2{font-size:28px;font-weight:800;letter-spacing:-.015em;margin:0 0 10px;}
+  .acerca-intro{color:var(--muted);font-size:15px;margin:0 0 28px;}
+  #acerca-contenido h3{font-size:13px;font-weight:700;color:var(--muted);margin:32px 0 6px;
+    padding-bottom:8px;border-bottom:1px solid var(--rule);}
+  #acerca-contenido details{border-bottom:1px solid var(--border);}
+  #acerca-contenido summary{cursor:pointer;list-style:none;padding:14px 28px 14px 0;font-size:15px;
+    font-weight:600;position:relative;}
+  #acerca-contenido summary::-webkit-details-marker{display:none;}
+  #acerca-contenido summary::after{content:"+";position:absolute;right:4px;top:12px;font-size:18px;
+    font-weight:400;color:var(--faint);}
+  #acerca-contenido details[open] summary::after{content:"−";}
+  #acerca-contenido summary:hover{color:#fff;}
+  #acerca-contenido details p{margin:0 0 16px;color:#cfd1d6;font-size:14.5px;}
+  #acerca-contenido a{color:var(--text);}
 </style>
 </head>
 <body>
@@ -208,6 +226,7 @@
       <div class="tab-btn active" data-vista="mapa">Mapa</div>
       <div class="tab-btn" data-vista="graficos">Gráficos</div>
       <div class="tab-btn" data-vista="detalle">Detalle</div>
+      <div class="tab-btn" data-vista="acerca">Acerca de</div>
     </div>
   </header>
   <main>
@@ -407,6 +426,94 @@
           </div>
           <div id="detalle-ficha-partidos"></div>
         </div>
+      </div>
+    </div>
+    <div class="vista" id="vista-acerca">
+      <div id="acerca-contenido">
+        <h2>Acerca de esta herramienta</h2>
+        <p class="acerca-intro">Consulta independiente de los resultados de las Elecciones Generales 2026, a nivel de circunscripción, provincia, distrito y local de votación. No es un sitio oficial ni reemplaza a la ONPE.</p>
+
+        <h3>Sobre el proyecto</h3>
+        <details>
+          <summary>¿Por qué hice esta herramienta?</summary>
+          <p>Un día, revisando la página oficial de resultados de la ONPE, quise ver los votos de un candidato al Congreso en el distrito donde vive, y no se podía. Después de darle varias vueltas, me di cuenta de que si se podía armar una interfaz de consulta a nivel distrital, también se podía armar una a nivel de local de votación. Espero que les sea tan útil como lo ha sido para mí.</p>
+        </details>
+        <details>
+          <summary>¿Quién soy?</summary>
+          <p>Soy un joven con estudios en Ciencia Política y Gobierno. Actualmente no estoy afiliado a ningún partido ni he recibido financiamiento para desarrollar esta herramienta. Durante las Elecciones Generales 2026 sí estuve afiliado y trabajé en la campaña presidencial de Primero la Gente.</p>
+        </details>
+        <details>
+          <summary>¿Es un sitio oficial?</summary>
+          <p><strong>No.</strong> Es una herramienta independiente y referencial, que no reemplaza a la ONPE. Por razones prácticas, <strong>no incluye los votos emitidos en el extranjero</strong>.</p>
+        </details>
+        <details>
+          <summary>¿Puedo usar estos datos o gráficos? ¿Cómo debo citarlos?</summary>
+          <p>Para uso cotidiano, basta con darme el crédito y compartir el enlace de esta página. Para uso académico, recomiendo extraer los datos directamente de las actas de la ONPE en lugar de citar esta interfaz.</p>
+        </details>
+
+        <h3>Datos y metodología</h3>
+        <details>
+          <summary>¿De dónde salen los datos?</summary>
+          <p>De los resultados por acta publicados por la ONPE, que descargué provincia por provincia y consolidé a nivel nacional.</p>
+        </details>
+        <details>
+          <summary>¿Qué tan actualizados están? ¿Incluyen todas las actas?</summary>
+          <p>Las actas se extrajeron después de la proclamación oficial de resultados. Incluyen solo las actas del Perú, no las del extranjero.</p>
+        </details>
+        <details>
+          <summary>¿Qué es un «local» en el mapa y por qué sus formas son polígonos irregulares?</summary>
+          <p>Cada polígono corresponde a un local de votación. A partir de la ubicación de cada local, proyecté un área de influencia dentro de cada circunscripción (las regiones y Lima Metropolitana), ponderada según cuántos votantes tenía el local. Esto se conoce como un diagrama de Voronoi ponderado. Es solo una aproximación visual: no necesariamente coincide con la zona real de donde vienen los votantes.</p>
+        </details>
+        <details>
+          <summary>¿Cómo se ubicaron los locales?</summary>
+          <p>Con ayuda de un servicio gratuito de geolocalización, asigné ubicaciones posibles a dos tercios de los locales. Luego verifiqué esas ubicaciones y completé a mano las que faltaban. En algunos casos, como ciertas comunidades campesinas y nativas, no había información suficiente para ubicarlos con precisión, así que sus ubicaciones son referenciales. Pueden quedar errores; los reportes son bienvenidos.</p>
+        </details>
+        <details>
+          <summary>¿Por qué hay locales fuera del distrito o la región al que corresponden?</summary>
+          <p>Se debe a los numerosos conflictos limítrofes entre las divisiones administrativas del país. En esos casos, proyecté el área de influencia a partir de la ubicación real del local, aunque excediera el límite del distrito, la provincia o la circunscripción.</p>
+        </details>
+        <details>
+          <summary>¿Por qué no aparece el voto en el extranjero?</summary>
+          <p>Esas actas no tenían una geografía asignada en la ONPE y eran tan pocas que no iban a ofrecer el mismo nivel de detalle que los locales en el Perú. Por eso esta herramienta trabaja solo con el voto en el territorio nacional, y sus totales no coinciden exactamente con los resultados oficiales.</p>
+        </details>
+        <details>
+          <summary>¿Qué significan los colores del mapa?</summary>
+          <p>Cada tono corresponde a un decil (un 10%) de los valores mostrados: más intenso, mayor valor. El color distinto con borde resaltado marca el 1% más alto, para que los valores extremos se distingan fácilmente y no distorsionen la escala del resto.</p>
+        </details>
+        <details>
+          <summary>¿Qué es el índice de concentración (Gini)?</summary>
+          <p>Es un índice que describe qué tan concentrado está el voto de un partido entre las mesas. Va de 0 a 1. Si un partido tuviera exactamente la misma cantidad de votos en todas las mesas (por ejemplo, 3 votos en cada una), su índice sería 0. Mientras más alto es el índice, más concentrados están sus votos en pocas mesas.</p>
+        </details>
+        <details>
+          <summary>¿Cómo se calculan la participación, el ausentismo y los nulos más blancos?</summary>
+          <p>Los electores hábiles, los votantes y los votos nulos y blancos vienen de las actas oficiales; solo los he sumado a nivel de local, distrito, provincia y circunscripción. El ausentismo es el porcentaje de electores hábiles que no votó.</p>
+        </details>
+        <details>
+          <summary>¿Por qué algunos distritos no coinciden con sus nombres oficiales?</summary>
+          <p>En la mayoría de casos, porque ni siquiera las distintas entidades del Estado coinciden en los nombres oficiales. En el caso del recién creado distrito de Alto Trujillo, como no tenía sus límites a la mano, sus locales están registrados bajo el distrito de El Porvenir.</p>
+        </details>
+        <details>
+          <summary>¿Por qué algunos candidatos no aparecen?</summary>
+          <p>Omití a los candidatos que no obtuvieron ni un solo voto en todo el país, como forma de excluir a quienes no llegaron a figurar en la cédula.</p>
+        </details>
+
+        <h3>Uso y privacidad</h3>
+        <details>
+          <summary>¿Por qué solo puedo ver los locales de una circunscripción a la vez?</summary>
+          <p>Es un límite que puse para que las computadoras con menos capacidad no demoren demasiado en mostrar la información. Aun así, mostrar más de 10 mil locales a la vez sigue siendo pesado.</p>
+        </details>
+        <details>
+          <summary>¿Se recopilan datos de quienes visitan el sitio?</summary>
+          <p>Por mi parte, no. La página está alojada en GitHub; desconozco si ellos almacenan información de visitas, aunque sospecho que tampoco.</p>
+        </details>
+        <details>
+          <summary>Encontré un error. ¿Cómo lo reporto?</summary>
+          <p>Puedes escribirme a <a href="mailto:emersonromerot@gmail.com">emersonromerot@gmail.com</a> o, si usas GitHub, registrarlo en <a href="https://github.com/emersonromerot/ConsultaEG2026/issues" target="_blank" rel="noopener">github.com/emersonromerot/ConsultaEG2026/issues</a>.</p>
+        </details>
+        <details>
+          <summary>¿Se usó inteligencia artificial para hacerlo?</summary>
+          <p>Sí. Me apoyé bastante en modelos de lenguaje (LLM) para generar el código que descarga la información, la procesa y arma esta interfaz. Mantuve un control estricto: ejecuté yo mismo el código, revisé los resultados y busqué garantizar la mayor calidad posible.</p>
+        </details>
       </div>
     </div>
   </main>
